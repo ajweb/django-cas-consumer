@@ -47,7 +47,12 @@ def login(request):
         messages.add_message(request, messages.INFO, message)
         return HttpResponseRedirect(next)
     else:
-        return HttpResponseForbidden("Error authenticating with CAS")
+        message = "An error has ocurred while authenticating with CAS. Please contact the system administrator."
+        if hasattr('CAS_REDIRECT_ON_ERROR', settings):
+            messages.add_message(request, messages.INFO, message)
+            return HttpResponseRedirect(settings.CAS_REDIRECT_ON_ERROR)
+        else:
+            return HttpResponseForbidden(message)
 
 def logout(request, next_page=cas_redirect_on_logout):
     """ Logs the current user out. If *CAS_COMPLETELY_LOGOUT* is true, redirect to the provider's logout page,
