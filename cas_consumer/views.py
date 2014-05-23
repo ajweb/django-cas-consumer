@@ -5,10 +5,9 @@ from django.core.urlresolvers import reverse
 from django.core.exceptions import SuspiciousOperation
 from django.template import RequestContext
 from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
-from django.contrib.auth import login as auth_login, logout as auth_logout
+from cas_consumer.backends import CASBackend
 from django.conf import settings
-from django.contrib import messages
+from importlib import import_module
 
 __all__ = ['login', 'logout',]
 
@@ -19,6 +18,27 @@ cas_validate = cas_base + settings.CAS_VALIDATE_URL
 cas_logout = cas_base + settings.CAS_LOGOUT_URL
 cas_next_default = settings.CAS_NEXT_DEFAULT
 cas_redirect_on_logout = settings.CAS_REDIRECT_ON_LOGOUT
+
+# a function to run after authentication
+# TODO we could automate that and run anything we have under a given directory/module
+if hasattr(settings, 'CAS_POST_AUTH_CALL'):
+    post_auth = import_module(settings.CAS_POST_AUTH_CALL)
+else:
+    post_auth = None
+
+messages = import_module(settings.CAS_MESSAGES_APP)
+
+# to integrate authentication when we cannot use AUTHENTICATION_BACKENDS setting
+if hasattr(settings, 'CAS_AUTH_CLASS'):
+    auth_class = getattr(import_module(settings.CAS_AUTH_CLASS[0]), settings.CAS_AUTH_CLASS[1])
+    auth_method = auth_class().authenticate
+else:
+    auth_method = getattr(import_module('django.contrib.auth'), 'authenticate') 
+
+if hasattr(settings, 'CAS_LOGOUT_CALLER'):
+    logout_caller = getattr(import_module(settings.CAS_LOGOUT_CALLER[0]), settings.CAS_LOGOUT_CALLER[1])
+else:
+    logout_caller = getattr(import_module('django.contrib.auth'), 'logout')
 
 def login(request):
     """ Fairly standard login view.
@@ -39,27 +59,32 @@ def login(request):
         raw_params = ['%s=%s' % (key, value) for key, value in params.items()]
         url += '&'.join(raw_params)
         return HttpResponseRedirect(url)
-    user = authenticate(service=service, ticket=ticket)
+    user = auth_method(service=service, ticket=ticket)
     if user is not None:
-        auth_login(request, user)
-        name = user.first_name or user.username
+        if post_auth:
+            post_auth.run(request, user)
+        if hasattr(user, "first_name") and user.first_name:
+            name = user.first_name
+        else:
+            name = user.username
         message ="Login succeeded. Welcome, %s." % name
         messages.add_message(request, messages.INFO, message)
         return HttpResponseRedirect(next)
     else:
         message = "An error has ocurred while authenticating with CAS. Please contact the system administrator."
-        if hasattr('CAS_REDIRECT_ON_ERROR', settings):
+        if hasattr(settings, 'CAS_REDIRECT_ON_ERROR'):
             messages.add_message(request, messages.INFO, message)
             return HttpResponseRedirect(settings.CAS_REDIRECT_ON_ERROR)
         else:
             return HttpResponseForbidden(message)
+
 
 def logout(request, next_page=cas_redirect_on_logout):
     """ Logs the current user out. If *CAS_COMPLETELY_LOGOUT* is true, redirect to the provider's logout page,
         which will redirect to ``next_page``.
 
     """
-    auth_logout(request)
+    logout_caller(request)
     if settings.CAS_COMPLETELY_LOGOUT:
         return HttpResponseRedirect('%s?url=%s' % (cas_logout, next_page))
     return HttpResponseRedirect(cas_redirect_on_logout)

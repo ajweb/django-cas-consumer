@@ -3,7 +3,10 @@ from urlparse import urljoin
 
 from django.conf import settings
 
-from django.contrib.auth.models import User, UNUSABLE_PASSWORD
+# UNUSABLE_PASSWORD removed for django 1.6, we use set_unusable_password() instead
+from misago.models.usermodel import User
+from django.contrib.auth.models import User as djangoUser
+import random
 
 __all__ = ['CASBackend']
 
@@ -44,14 +47,22 @@ class CASBackend(object):
         """Verifies CAS ticket and gets or creates User object"""
 
         username = _verify_cas1(ticket, service)
-        if not username:
+        print "username from _verify_cas1", username
+        if not username:    
             return None
         try:
             user = User.objects.get(username=username)
         except User.DoesNotExist:
-            # user will have an "unusable" password (thanks to James Bennett)
-            user = User.objects.create_user(username, UNUSABLE_PASSWORD)
-            user.save()
+            try:
+                user = User.objects.get(email=username)
+            except User.DoesNotExist:
+                # user will have an "unusable" password (thanks to James Bennett)
+                # with django 1.6 we need to call a function
+                short_username = username.split('@')[0]
+                if len(short_username) > 16: 
+                    short_username = short_username[0:16]
+                user = User.objects.create_user(short_username, username, djangoUser.objects.make_random_password())
+                user.save()
         if settings.CAS_USERINFO_CALLBACK is not None:
             settings.CAS_USERINFO_CALLBACK(user)
         return user
