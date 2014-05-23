@@ -1,14 +1,14 @@
 
-from setuptools import setup, find_packages
- 
+from distutils.core import setup
 setup(
-    name='django-cas-consumer',
-    version='0.1dev',
-    description='A "consumer" for the Central Authentication Service (http://jasig.org/cas)',
-    author='Chris Williams',
-    author_email='chris@nitron.org',
-    url='http://nitron.org/',
-    packages=find_packages(),
-    zip_safe=False,
-    install_requires=['setuptools'],
+  name = 'cas_consumer',
+  packages = ['cas_consumer'], 
+  version = '0.1',
+  description = 'Fork of CAS Consumer for django',
+  author = 'Versio4',
+  author_email = 'peterldowns@gmail.com',
+  url = 'http://versio4.com', 
+  # this needs to point to release branch
+  download_url = 'https://bitbucket.org/versio4/av22-cas-consumer/get/release.zip',
+  classifiers = [],
 )
