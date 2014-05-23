@@ -1,10 +1,10 @@
 from urllib import urlencode, urlopen
 from urlparse import urljoin
+from importlib import import_module
 
 from django.conf import settings
 
 # UNUSABLE_PASSWORD removed for django 1.6, we use set_unusable_password() instead
-from misago.models.usermodel import User
 from django.contrib.auth.models import User as djangoUser
 import random
 
@@ -16,6 +16,11 @@ cas_login = cas_base + settings.CAS_LOGIN_URL
 cas_validate = cas_base + settings.CAS_VALIDATE_URL
 cas_logout = cas_base + settings.CAS_LOGOUT_URL
 cas_next_default = settings.CAS_NEXT_DEFAULT
+
+if hasattr(settings, 'CAS_USER_MODEL'):
+    User = getattr(import_module(settings.CAS_USER_MODEL), 'User')  
+else:
+    User = djangoUser  
 
 def _verify_cas1(ticket, service):
     """Verifies CAS 1.0 authentication ticket.
