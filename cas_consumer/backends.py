@@ -52,7 +52,6 @@ class CASBackend(object):
         """Verifies CAS ticket and gets or creates User object"""
 
         username = _verify_cas1(ticket, service)
-        print "username from _verify_cas1", username
         if not username:    
             return None
         try:
@@ -66,6 +65,8 @@ class CASBackend(object):
                 short_username = username.split('@')[0]
                 if len(short_username) > 16: 
                     short_username = short_username[0:16]
+                while len(short_username) < 3:
+                    short_username += short_username
                 user = User.objects.create_user(short_username, username, djangoUser.objects.make_random_password())
                 user.save()
         if settings.CAS_USERINFO_CALLBACK is not None:

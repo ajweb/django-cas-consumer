@@ -26,7 +26,16 @@ if hasattr(settings, 'CAS_POST_AUTH_CALL'):
 else:
     post_auth = None
 
-messages = import_module(settings.CAS_MESSAGES_APP)
+try:
+    from django.contrib.auth import login as auth_login
+except:
+    auth_login = None
+
+if hasattr(settings, 'CAS_MESSAGES_APP'):
+    messages = import_module(settings.CAS_MESSAGES_APP)
+else:
+    from django.contrib import messages
+
 
 # to integrate authentication when we cannot use AUTHENTICATION_BACKENDS setting
 if hasattr(settings, 'CAS_AUTH_CLASS'):
@@ -61,6 +70,10 @@ def login(request):
         return HttpResponseRedirect(url)
     user = auth_method(service=service, ticket=ticket)
     if user is not None:
+        # standard django login
+        if auth_login and (not hasattr(settings, 'CAS_DISABLE_DJANGO_LOGIN') or settings.CAS_DISABLE_DJANGO_LOGIN is False):
+            auth_login(request, user)
+        # anything we need to run after our auth/login or custom logins
         if post_auth:
             post_auth.run(request, user)
         if hasattr(user, "first_name") and user.first_name:
